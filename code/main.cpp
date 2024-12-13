@@ -715,15 +715,24 @@ class FiveStageCore : public Core{
 						nextState.MEM.ALUresult = bitset<32>(state.EX.Read_data1.to_ulong() - state.EX.Read_data2.to_ulong());
 					}
 				} else {
-					//lw instruction
-					if (state.EX.rd_mem) {
-						nextState.MEM.ALUresult = bitset<32>(state.EX.Read_data1.to_ulong() + state.EX.Imm.to_ulong());
-					}
+				bitset<32> Offset = bitset<32>(state.EX.Imm.to_ulong());
+				if (state.EX.alu_op)
+				{
+					if (state.EX.Imm[15] == 1)
+						for (int i = 31; i > 15; i--)
+							Offset[i] = 1;
 
-					//sw instruction
-					else if (state.EX.wrt_mem) {
-						nextState.MEM.ALUresult = bitset<32>(state.EX.Read_data1.to_ulong() + state.EX.Imm.to_ulong());
+					//lw instruction
+					if (state.EX.rd_mem)    
+					{
+						nextState.MEM.ALUresult = bitset<32>(state.EX.Read_data1.to_ulong() + bitset<32>(Offset.to_ulong()).to_ulong());
 					}
+					//sw instruction
+					else
+					{
+						nextState.MEM.ALUresult = bitset<32>(state.EX.Read_data1.to_ulong() + bitset<32>(Offset.to_ulong()).to_ulong());
+					}
+				}
 				}
 				nextState.MEM.nop = 0;
 				if (state.ID.nop) {
@@ -788,6 +797,38 @@ class FiveStageCore : public Core{
 						nextState.EX.wrt_mem = 1;
 						nextState.EX.nop = 0;
 						break;
+
+					//beq
+					case 0x04:
+					nextState.EX.Wrt_reg_addr = nextState.EX.Rt;
+					nextState.EX.alu_op = 0;
+					nextState.EX.is_I_type = 1;
+					nextState.EX.wrt_enable = 0;
+					nextState.EX.rd_mem = 0;
+					nextState.EX.wrt_mem = 0;
+
+					if (nextState.EX.Read_data1 != nextState.EX.Read_data2)
+					{
+						bitset<32> BranchAddr;
+
+						// SignExtend
+						if (nextState.EX.Imm[15] == 1)
+						{
+							BranchAddr = bitset<32>(nextState.EX.Imm.to_ulong()) << 2;
+							for (int i = 31; i > 17; i--)
+							{
+								BranchAddr[i] = 1;
+							}
+						}
+						else
+						{
+							BranchAddr = bitset<32>(nextState.EX.Imm.to_ulong()) << 2;
+						}
+
+						state.IF.PC = bitset<32>(state.IF.PC.to_ulong() + BranchAddr.to_ulong());
+					}
+					nextState.EX.nop = 0;
+					break;
 
 					default: break;
 				}
